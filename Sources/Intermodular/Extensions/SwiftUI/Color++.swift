@@ -31,7 +31,7 @@ extension Color {
         #if os(iOS) || os(macOS) || os(tvOS)
         Color(.placeholderText)
         #else
-        return .gray // FIXME
+        return Color(.placeholderTextColor) // FIXME
         #endif
     }
 }

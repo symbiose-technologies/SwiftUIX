@@ -6,7 +6,7 @@ import Swift
 import SwiftUI
 
 /// A container for a view to be presented as a popover.
-public struct Popover<Content: View> {
+public struct NativePopover<Content: View> {
     public let content: Content
     
     public private(set) var attachmentAnchor: PopoverAttachmentAnchor = .rect(.bounds)
@@ -17,7 +17,7 @@ public struct Popover<Content: View> {
     }
 }
 
-extension Popover {
+extension NativePopover {
     public func attachmentAnchor(_ anchor: PopoverAttachmentAnchor) -> Self {
         var result = self
         
@@ -39,7 +39,7 @@ extension Popover {
 
 extension PresentationLink {
     public init(
-        destination: () -> Popover<Destination>,
+        destination: () -> NativePopover<Destination>,
         @ViewBuilder label: () -> Label
     ) {
         let destination = destination()
@@ -61,7 +61,7 @@ extension PresentationLink {
     
     public init(
         isPresented: Binding<Bool>,
-        destination: () -> Popover<Destination>,
+        destination: () -> NativePopover<Destination>,
         @ViewBuilder label: () -> Label
     ) {
         let destination = destination()
@@ -84,7 +84,7 @@ extension PresentationLink {
     
     public init<S: StringProtocol>(
         _ title: S,
-        destination: () -> Popover<Destination>
+        destination: () -> NativePopover<Destination>
     ) where Label == Text {
         self.init(destination: destination) {
             Text(title)
@@ -95,7 +95,7 @@ extension PresentationLink {
 extension PresentationLink where Label == Image {
     public init(
         systemImage: SFSymbolName,
-        destination: @escaping () -> Popover<Destination>
+        destination: @escaping () -> NativePopover<Destination>
     ) {
         self.init(destination: destination) {
             Image(systemName: systemImage)
@@ -105,7 +105,7 @@ extension PresentationLink where Label == Image {
     public init(
         systemImage: SFSymbolName,
         isPresented: Binding<Bool>,
-        destination: @escaping () -> Popover<Destination>
+        destination: @escaping () -> NativePopover<Destination>
     ) {
         self.init(isPresented: isPresented, destination: destination) {
             Image(systemName: systemImage)
@@ -118,7 +118,7 @@ extension PresentationLink where Label == SwiftUI.Label<Text, Image> {
     public init<S: StringProtocol>(
         _ title: S,
         systemImage: SFSymbolName,
-        @ViewBuilder destination: @escaping () -> Popover<Destination>
+        @ViewBuilder destination: @escaping () -> NativePopover<Destination>
     ) {
         self.init(destination: destination) {
             Label(title, systemImage: systemImage)
