@@ -5,21 +5,48 @@
 import Swift
 import SwiftUI
 
+fileprivate struct _SwiftUI_Section<Parent, Content, Footer> {
+    let header: Parent
+    let content: Content
+    let footer: Footer
+}
+
 extension Section {
+    fileprivate var _internalStructure: _SwiftUI_Section<Parent, Content, Footer> {
+        if MemoryLayout<Self>.size == MemoryLayout<(Parent, Content, Footer)>.size {
+            let guts = unsafeBitCast(self, to: (Parent, Content, Footer).self)
+            
+            return .init(header: guts.0, content: guts.1, footer: guts.2)
+        } else {
+            let mirror = Mirror(reflecting: self)
+            
+            let header = mirror[_keyPath: "header"] as! Parent
+            let content = mirror[_keyPath: "content"] as! Content
+            let footer = mirror[_keyPath: "footer"] as! Footer
+            
+            return .init(header: header, content: content, footer: footer)
+        }
+    }
+    
     public var header: Parent {
-        unsafeBitCast(self, to: (Parent, Content, Footer).self).0
+        _internalStructure.header
     }
     
     public var content: Content {
-        unsafeBitCast(self, to: (Parent, Content, Footer).self).1
+        _internalStructure.content
     }
     
     public var footer: Footer {
-        unsafeBitCast(self, to: (Parent, Content, Footer).self).2
+        _internalStructure.footer
     }
 }
 
 extension Section where Parent == Text, Content: View, Footer == EmptyView {
+    @_disfavoredOverload
+    public init(_ header: Text, @ViewBuilder content: () -> Content) {
+        self.init(header: header, content: content)
+    }
+
     @_disfavoredOverload
     public init<S: StringProtocol>(_ header: S, @ViewBuilder content: () -> Content) {
         self.init(header: Text(header), content: content)

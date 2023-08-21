@@ -104,6 +104,19 @@ extension View {
     }
 }
 
+// MARK: View.id
+
+extension View {
+    @_spi(Internal)
+    public func _opaque_id(_ hashable: AnyHashable) -> some View {
+        func _makeView<ID: Hashable>(_ id: ID) -> AnyView {
+            self.id(id).eraseToAnyView()
+        }
+        
+        return _openExistential(hashable.base as! (any Hashable), do: _makeView)
+    }
+}
+
 // MARK: View.offset
 
 extension View {
@@ -136,10 +149,22 @@ extension View {
         self.transition(makeTransition())
     }
     
+    public func asymmetricTransition(
+        insertion: AnyTransition
+    ) -> some View {
+        transition(.asymmetric(insertion: insertion, removal: .identity))
+    }
+    
+    public func asymmetricTransition(
+        removal: AnyTransition
+    ) -> some View {
+        transition(.asymmetric(insertion: .identity, removal: removal))
+    }
+    
     /// Associates an insertion transition and a removal transition with the view.
     public func asymmetricTransition(
-        insertion: AnyTransition = .identity,
-        removal: AnyTransition = .identity
+        insertion: AnyTransition,
+        removal: AnyTransition
     ) -> some View {
         transition(.asymmetric(insertion: insertion, removal: removal))
     }

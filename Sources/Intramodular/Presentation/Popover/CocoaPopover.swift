@@ -8,15 +8,15 @@ import SwiftUI
 
 private struct PopoverViewModifier<PopoverContent>: ViewModifier where PopoverContent: View {
     @Binding var isPresented: Bool
-    let arrowEdge: Edge?
+    let arrowEdges: Edge.Set
     let onDismiss: (() -> Void)?
     let content: () -> PopoverContent
     
     func body(content: Content) -> some View {
         content.background(
-            _CocoaPopoverInjector(
+            _AttachCocoaPopoverPresenter(
                 isPresented: self.$isPresented,
-                arrowEdge: arrowEdge,
+                arrowEdges: arrowEdges,
                 onDismiss: self.onDismiss,
                 content: self.content
             )
@@ -27,30 +27,46 @@ private struct PopoverViewModifier<PopoverContent>: ViewModifier where PopoverCo
 // MARK: - API
 
 extension View {
-    public func cocoaPopover<Content>(
+    public func cocoaPopover<Content: View>(
         isPresented: Binding<Bool>,
-        arrowEdge: Edge? = .top,
+        arrowEdges: Edge.Set,
         onDismiss: (() -> Void)? = nil,
         content: @escaping () -> Content
-    ) -> some View where Content: View {
+    ) -> some View {
         modifier(
             PopoverViewModifier(
                 isPresented: isPresented,
-                arrowEdge: arrowEdge,
+                arrowEdges: arrowEdges,
                 onDismiss: onDismiss,
                 content: content
             )
         )
     }
+    
+    public func cocoaPopover<Content: View>(
+        isPresented: Binding<Bool>,
+        arrowEdge: Edge,
+        onDismiss: (() -> Void)? = nil,
+        content: @escaping () -> Content
+    ) -> some View  {
+        self.cocoaPopover(
+            isPresented: isPresented,
+            arrowEdges: .init(edge: arrowEdge),
+            onDismiss: onDismiss,
+            content: content
+        )
+    }
 }
 
-private struct _CocoaPopoverInjector<Content: View> : UIViewControllerRepresentable {
+// MARK: - Implementation
+
+private struct _AttachCocoaPopoverPresenter<Content: View> : UIViewControllerRepresentable {
     class Coordinator: NSObject, UIPopoverPresentationControllerDelegate {
         let host: UIHostingController<Content>
         
-        private let parent: _CocoaPopoverInjector
+        private let parent: _AttachCocoaPopoverPresenter
         
-        init(parent: _CocoaPopoverInjector, content: Content) {
+        init(parent: _AttachCocoaPopoverPresenter, content: Content) {
             self.parent = parent
             self.host = UIHostingController(rootView: content)
         }
@@ -69,7 +85,7 @@ private struct _CocoaPopoverInjector<Content: View> : UIViewControllerRepresenta
     
     @Binding var isPresented: Bool
     
-    let arrowEdge: Edge?
+    let arrowEdges: Edge.Set
     let onDismiss: (() -> Void)?
     
     @ViewBuilder let content: () -> Content
@@ -88,7 +104,7 @@ private struct _CocoaPopoverInjector<Content: View> : UIViewControllerRepresenta
             host.modalPresentationStyle = UIModalPresentationStyle.popover
             
             host.popoverPresentationController?.delegate = context.coordinator
-            host.popoverPresentationController?.permittedArrowDirections = arrowEdge.map({  .init(PopoverArrowDirection($0)) }) ?? []
+            host.popoverPresentationController?.permittedArrowDirections = arrowEdges.permittedArrowDirection
             host.popoverPresentationController?.sourceView = uiViewController.view
             host.popoverPresentationController?.sourceRect = uiViewController.view.bounds
             
@@ -101,6 +117,36 @@ private struct _CocoaPopoverInjector<Content: View> : UIViewControllerRepresenta
     
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self, content: self.content())
+    }
+}
+
+// MARK: - Auxiliary
+
+private extension Edge.Set {
+    var permittedArrowDirection: UIPopoverArrowDirection {
+        var directions: UIPopoverArrowDirection = .unknown
+        
+        if contains(.top) {
+            directions.insert(.up)
+        }
+        
+        if contains(.bottom) {
+            directions.insert(.down)
+        }
+        
+        if contains(.leading) {
+            directions.insert(.left)
+        }
+        
+        if contains(.trailing) {
+            directions.insert(.right)
+        }
+        
+        guard directions != .unknown else {
+            return .any
+        }
+        
+        return directions
     }
 }
 

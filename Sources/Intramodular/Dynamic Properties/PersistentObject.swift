@@ -8,19 +8,17 @@ import SwiftUI
 
 /// A property wrapper type that instantiates an observable object.
 @propertyWrapper
-public struct PersistentObject<ObjectType: ObservableObject>: DynamicProperty {
-    private let thunk: () -> ObjectType
+public struct PersistentObject<Value>: DynamicProperty {
+    private let thunk: () -> Value
     
-    @State private var objectContainer = _OptionalObservedObjectContainer<ObjectType>()
+    @State private var objectContainer: _ObservableObjectBox<Value>
     
-    @ObservedObject private var observedObjectContainer = _OptionalObservedObjectContainer<ObjectType>()
+    @ObservedObject private var observedObjectContainer: _ObservableObjectBox<Value>
     
-    public var wrappedValue: ObjectType {
+    public var wrappedValue: Value {
         get {
             if let object = objectContainer.base {
-                if observedObjectContainer.base !== object {
-                    observedObjectContainer.base = object
-                }
+                observedObjectContainer.base = object
                 
                 return object
             } else {
@@ -32,21 +30,38 @@ public struct PersistentObject<ObjectType: ObservableObject>: DynamicProperty {
                 return object
             }
         } nonmutating set {
+            observedObjectContainer.objectWillChange.send()
+
             objectContainer.base = newValue
             observedObjectContainer.base = newValue
         }
     }
     
-    public var projectedValue: ObservedObject<ObjectType>.Wrapper {
-        ObservedObject(wrappedValue: wrappedValue).projectedValue
+    public init(
+        wrappedValue thunk: @autoclosure @escaping () -> Value
+    ) where Value: ObservableObject {
+        self.thunk = thunk
+        self._objectContainer = .init(initialValue: .init(base: nil))
+        self._observedObjectContainer = .init(initialValue: .init(base: nil))
     }
     
-    public init(wrappedValue thunk: @autoclosure @escaping () -> ObjectType) {
+    public init<T: ObservableObject>(
+        wrappedValue thunk: @autoclosure @escaping () -> Value
+    ) where Value == Optional<T> {
         self.thunk = thunk
+        self._objectContainer = .init(initialValue: .init(base: nil))
+        self._observedObjectContainer = .init(initialValue: .init(base: nil))
     }
+    
     
     public mutating func update() {
         _objectContainer.update()
         _observedObjectContainer.update()
+    }
+}
+
+extension PersistentObject where Value: ObservableObject {
+    public var projectedValue: ObservedObject<Value>.Wrapper {
+        ObservedObject(wrappedValue: wrappedValue).projectedValue
     }
 }

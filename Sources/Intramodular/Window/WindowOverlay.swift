@@ -40,9 +40,10 @@ struct WindowOverlay<Content: View>: AppKitOrUIKitViewControllerRepresentable {
         _ viewController: AppKitOrUIKitViewControllerType,
         context: Context
     ) {
-        viewController.windowPresentationController.isVisible = isVisible.wrappedValue
         viewController.windowPresentationController.preferredColorScheme = context.environment.colorScheme
         viewController.windowPresentationController.content = content
+        viewController.windowPresentationController.isVisible = isVisible.wrappedValue
+        viewController.windowPresentationController._externalIsVisibleBinding = isVisible
     }
     
     static func dismantleAppKitOrUIKitViewController(
@@ -142,13 +143,13 @@ public struct WindowProxy {
         #endif
     }
     
-    public func setMaximumLevel() {
+    public func _macOS_setMaximumLevel() {
         guard let window = window else {
             return assertionFailure()
         }
         
         #if os(iOS) || os(tvOS)
-        fatalError()
+        assertionFailure()
         #elseif os(macOS)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.level = .screenSaver

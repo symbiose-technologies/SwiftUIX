@@ -32,15 +32,25 @@ extension Font {
         }
     }
     
+    private static var _appKitOrUIKitConversionCache: [Font: AppKitOrUIKitFont] = [:]
+    
     @available(macOS 11.0, *)
     public func toAppKitOrUIKitFont() throws -> AppKitOrUIKitFont {
+        if let result = Self._appKitOrUIKitConversionCache[self] {
+            return result
+        }
+        
         var font: AppKitOrUIKitFont?
         
-        inspect(self) { label, value in
-            guard label == "provider" else { return }
+        Mirror.inspect(self) { label, value in
+            guard label == "provider" else {
+                return
+            }
             
-            inspect(value) { label, value in
-                guard label == "base" else { return }
+            Mirror.inspect(value) { label, value in
+                guard label == "base" else {
+                    return
+                }
                 
                 guard let provider = _SwiftUIFontProvider(from: value) else {
                     return assertionFailure("Could not create font provider")
@@ -53,6 +63,8 @@ extension Font {
         font = font ?? getTextStyle()
             .flatMap({ $0.toAppKitOrUIKitFontTextStyle() })
             .map(AppKitOrUIKitFont.preferredFont(forTextStyle:))
+        
+        Self._appKitOrUIKitConversionCache[self] = font
         
         return try font.unwrap()
     }
@@ -96,6 +108,17 @@ private enum _SwiftUIFontProvider {
     case textStyle(Font.TextStyle, weight: Font.Weight?, design: Font.Design?)
     case platform(CTFont)
     
+    mutating func setWeight(_ weight: Font.Weight?) {
+        switch self {
+            case let .system(size, _, design):
+                self = .system(size: size, weight: weight, design: design)
+            case let .textStyle(style, _, design):
+                self = .textStyle(style, weight: weight, design: design)
+            case .platform:
+                break // FIXME!
+        }
+    }
+    
     @available(macOS 11.0, *)
     func toAppKitOrUIKitFont() -> AppKitOrUIKitFont? {
         switch self {
@@ -114,8 +137,20 @@ private enum _SwiftUIFontProvider {
         }
     }
     
-    init?(from reflection: Any) {
-        switch String(describing: type(of: reflection)) {
+    init?(from subject: Any) {
+        switch String(describing: type(of: subject)) {
+            case "ModifierProvider<WeightModifier>":
+                guard let base = Mirror(reflecting: subject)[_keyPath: "base.provider.base"] else {
+                    return nil
+                }
+                
+                guard let weight = Mirror(reflecting: subject)[_keyPath: "modifier.weight"] as? Font.Weight else {
+                    return nil
+                }
+                
+                self.init(from: base)
+
+                self.setWeight(weight)
             case "SystemProvider":
                 var props: (
                     size: CGFloat?,
@@ -123,7 +158,7 @@ private enum _SwiftUIFontProvider {
                     design: Font.Design?
                 ) = (nil, nil, nil)
                 
-                inspect(reflection) { label, value in
+                Mirror.inspect(subject) { label, value in
                     switch label {
                         case "size":
                             props.size = value as? CGFloat
@@ -153,7 +188,7 @@ private enum _SwiftUIFontProvider {
                     design: Font.Design?
                 ) = (nil, nil, nil)
                 
-                inspect(reflection) { label, value in
+                Mirror.inspect(subject) { label, value in
                     switch label {
                         case "style":
                             props.style = value as? Font.TextStyle
@@ -179,7 +214,7 @@ private enum _SwiftUIFontProvider {
             case "PlatformFontProvider":
                 var font: CTFont?
                 
-                inspect(reflection) { label, value in
+                Mirror.inspect(subject) { label, value in
                     guard label == "font" else {
                         return
                     }
@@ -202,7 +237,7 @@ extension SwiftUI.Font.Weight {
     fileprivate func toAppKitOrUIKitFontWeight() -> AppKitOrUIKitFont.Weight? {
         var rawValue: CGFloat? = nil
         
-        inspect(self) { label, value in
+        Mirror.inspect(self) { label, value in
             guard label == "value" else {
                 return
             }
@@ -216,8 +251,4 @@ extension SwiftUI.Font.Weight {
         
         return .init(rawValue)
     }
-}
-
-private func inspect(_ object: Any, with action: (Mirror.Child) -> Void) {
-    Mirror(reflecting: object).children.forEach(action)
 }

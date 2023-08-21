@@ -13,7 +13,7 @@ extension Binding {
 }
 
 extension Binding {
-    public func cast<T, U>() -> Binding<Optional<U>> where Value == Optional<T> {
+    public func conditionalCast<T, U>() -> Binding<Optional<U>> where Value == Optional<T> {
         Binding<Optional<U>>(
             get: {
                 self.wrappedValue.flatMap({ $0 as? U })
@@ -77,10 +77,32 @@ extension Binding {
 }
 
 extension Binding {
-    public func map<T>(_ keyPath: WritableKeyPath<Value, T>) -> Binding<T> {
-        .init(
+    public func map<T>(
+        _ keyPath: WritableKeyPath<Value, T>
+    ) -> Binding<T> {
+        Binding<T>(
             get: { wrappedValue[keyPath: keyPath] },
             set: { wrappedValue[keyPath: keyPath] = $0 }
+        )
+    }
+    
+    public func _map<T>(
+        _ transform: @escaping (Value) -> T,
+        _ reverse : @escaping (T) -> Value
+    ) -> Binding<T> {
+        Binding<T>(
+            get: { transform(self.wrappedValue) },
+            set: { wrappedValue = reverse($0) }
+        )
+    }
+    
+    public func _map<T, U>(
+        _ transform: @escaping (T) -> U,
+        _ reverse : @escaping (U) -> T
+    ) -> Binding<U?> where Value == Optional<T> {
+        Binding<U?>(
+            get: { self.wrappedValue.map(transform) },
+            set: { wrappedValue = $0.map(reverse) }
         )
     }
 }
@@ -107,15 +129,19 @@ extension Binding {
         }
     }
     
-    public func onSet(_ body: @escaping (Value) -> ()) -> Self {
+    public func onSet(
+        perform body: @escaping (Value) -> ()
+    ) -> Self {
         return .init(
             get: { self.wrappedValue },
             set: { self.wrappedValue = $0; body($0) }
         )
     }
     
-    public func mirror(to other: Binding<Value>) -> Binding<Value> {
-        onSet({ other.wrappedValue = $0 })
+    public func mirror(
+        to other: Binding<Value>
+    ) -> Binding<Value> {
+        onSet(perform: { other.wrappedValue = $0 })
     }
     
     public func printOnSet() -> Self {
@@ -179,6 +205,19 @@ extension Binding {
             }
         )
     }
+    
+    public static func unwrapping(
+        _ other: Binding<Value?>
+    ) -> Self? {
+        guard let wrappedValue = other.wrappedValue else {
+            return nil
+        }
+        
+        return Binding(
+            get: { other.wrappedValue ?? wrappedValue },
+            set: { other.wrappedValue = $0 }
+        )
+    }
 }
 
 extension Binding {
@@ -193,6 +232,29 @@ extension Binding {
         .init(
             get: { lhs.wrappedValue.map({ $0 && rhs }) },
             set: { lhs.wrappedValue = $0 }
+        )
+    }
+    
+    /// Creates a `Binding<Bool>` that reports whether `binding.wrappedValue` equals a given value.
+    ///
+    /// `binding.wrappedValue` will be set to `nil` only if `binding.wrappedValue` is equal to the given value and the `Boolean` value being set is `false.`
+    public static func boolean<T: Equatable>(
+        _ binding: Binding<T?>,
+        equals value: T?
+    ) -> Binding<Bool> where Value == Bool {
+        .init(
+            get: {
+                binding.wrappedValue == value
+            },
+            set: { newValue in
+                if newValue {
+                    binding.wrappedValue = value
+                } else {
+                    if binding.wrappedValue == value {
+                        binding.wrappedValue = nil
+                    }
+                }
+            }
         )
     }
     

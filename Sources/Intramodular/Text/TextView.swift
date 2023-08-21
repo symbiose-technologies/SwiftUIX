@@ -11,6 +11,8 @@ import SwiftUI
 @available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
 public struct TextView<Label: View>: View {
     struct _Configuration {
+        var _fixedSize: (Bool, Bool)? = nil
+        
         var isConstant: Bool
         var onEditingChanged: (Bool) -> Void
         var onCommit: () -> Void
@@ -62,15 +64,12 @@ public struct TextView<Label: View>: View {
     }
     
     public var body: some View {
-        ZStack(alignment: Alignment(horizontal: .leading, vertical: .top)) {
+        ZStack(alignment: Alignment(horizontal: .leading, vertical: .center)) {
             if isEmpty {
                 label
                     .font(configuration.font.map(Font.init) ?? font)
                     .animation(.none)
                     .padding(configuration.textContainerInset.edgeInsets)
-                    .modify(for: .macOS) {
-                        $0.padding(.vertical, -1)
-                    }
             }
             
             _TextView<Label>(
@@ -86,7 +85,7 @@ public struct TextView<Label: View>: View {
 // MARK: - Implementation
 
 @available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
-fileprivate struct _TextView<Label: View> {
+struct _TextView<Label: View> {
     typealias Configuration = TextView<Label>._Configuration
     
     let text: Binding<String>?
@@ -174,9 +173,7 @@ extension _TextView: UIViewRepresentable {
             
             uiView.autocapitalizationType = configuration.autocapitalization ?? .sentences
             
-            let font = configuration.font
-                ?? (try? context.environment.font?.toAppKitOrUIKitFont())
-                ?? AppKitOrUIKitFont.preferredFont(forTextStyle: .body)
+            let font: AppKitOrUIKitFont? = configuration.font ?? (try? context.environment.font?.toAppKitOrUIKitFont())
             
             if let textColor = configuration.textColor {
                 _assignIfNotEqual(textColor, to: &uiView.textColor)
@@ -217,9 +214,12 @@ extension _TextView: UIViewRepresentable {
                 
                 if let text = text {
                     var attributes: [NSAttributedString.Key: Any] = [
-                        NSAttributedString.Key.paragraphStyle: paragraphStyle,
-                        NSAttributedString.Key.font: font
+                        NSAttributedString.Key.paragraphStyle: paragraphStyle
                     ]
+                    
+                    if let font {
+                        attributes[.font] = font
+                    }
                     
                     if let kerning = configuration.kerning {
                         _assignIfNotEqual(kerning, to: &attributes[.kern])
@@ -384,11 +384,23 @@ extension _TextView: NSViewRepresentable {
         
         nsView.parent = self
         nsView.delegate = context.coordinator
-    
+
+        nsView.focusRingType = .none
+
+        if context.environment.isEnabled {
+            DispatchQueue.main.async {
+                if (configuration.isInitialFirstResponder ?? configuration.isFocused?.wrappedValue) ?? false {
+                    nsView._SwiftUIX_becomeFirstResponder()
+                }
+            }
+        }
+
         return nsView
     }
     
     func updateNSView(_ nsView: NSViewType, context: Context) {
+        nsView.parent = self
+        
         if let text = text {
             if nsView.string != text.wrappedValue {
                 nsView.string = text.wrappedValue
@@ -396,11 +408,12 @@ extension _TextView: NSViewRepresentable {
         } else if let attributedText = attributedText {
             nsView.textStorage?.setAttributedString(attributedText.wrappedValue)
         }
-        
-        nsView.parent = self
+
         nsView._update(configuration: configuration, context: context)
         
         nsView.invalidateIntrinsicContentSize()
+        
+        nsView.frame.size = nsView.intrinsicContentSize
     }
     
     class Coordinator: NSObject, NSTextViewDelegate {
@@ -454,89 +467,40 @@ extension _TextView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
-}
 
-@available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
-@available(watchOS, unavailable)
-fileprivate class _NSTextView<Label: View>: NSTextView {
-    var parent: _TextView<Label>!
-
-    var configuration: _TextView<Label>.Configuration {
-        parent.configuration
-    }
-    
-    override var intrinsicContentSize: NSSize {
-        guard let manager = textContainer?.layoutManager else {
-            return .zero
-        }
-        
-        manager.ensureLayout(for: textContainer!)
-        
-        let size = manager.usedRect(for: textContainer!).size
-        
-        return .init(width: size.width, height: size.height)
-    }
-        
-    func _update(
-        configuration: _TextView<Label>.Configuration,
-        context: _TextView<Label>.Context
-    ) {
-        backgroundColor = .clear
-        drawsBackground = false
-        isEditable = true
-        textContainerInset = .zero
-        usesAdaptiveColorMappingForDarkAppearance = true
-        
-        font = font ?? (try? configuration.font ?? context.environment.font?.toAppKitOrUIKitFont())
-        textColor = configuration.textColor
-        
-        textStorage?.font = font
-        
-        if let textContainer {
-            _assignIfNotEqual(.zero, to: &textContainer.lineFragmentPadding)
-            _assignIfNotEqual((context.environment.lineLimit ?? 0), to: &textContainer.maximumNumberOfLines)
-        }
-
-        isHorizontallyResizable = false
-        isVerticallyResizable = true
-        autoresizingMask = [.width]
-
-        if let tintColor = configuration.tintColor {
-            insertionPointColor = tintColor
-        }
-    }
-    
-    override func preferredPasteboardType(
-        from availableTypes: [NSPasteboard.PasteboardType],
-        restrictedToTypesFrom allowedTypes: [NSPasteboard.PasteboardType]?
-    ) -> NSPasteboard.PasteboardType? {
-        if availableTypes.contains(.string) {
-            return .string
-        } else {
-            return super.preferredPasteboardType(
-                from: availableTypes,
-                restrictedToTypesFrom: allowedTypes
-            )
-        }
-    }
-            
-    override func keyDown(with event: NSEvent) {
-        if let shortcut = KeyboardShortcut(from: event) {
-            switch shortcut {
-                case KeyboardShortcut(.return, modifiers: []):
-                    parent.configuration.onCommit()
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    public func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView: NSViewType,
+        context: Context
+    ) -> CGSize? {
+        if let _fixedSize = configuration._fixedSize {
+            switch _fixedSize {
+                case (false, false):
+                    return nil
                 default:
-                    super.keyDown(with: event)
+                    assertionFailure("unsupported")
+                    
+                    return nil
             }
         } else {
-            super.keyDown(with: event)
+            if proposal.width != nil {
+                return nsView._sizeThatFits(
+                    AppKitOrUIKitLayoutSizeProposal(
+                        proposal,
+                        fixedSize: nil
+                    )
+                )
+            } else {
+                return nil
+            }
         }
     }
 }
 
 #endif
 
-// MARK: - API
+// MARK: - Initializers
 
 @available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
 @available(watchOS, unavailable)
@@ -572,6 +536,18 @@ extension TextView where Label == EmptyView {
     ) {
         self.label = EmptyView()
         self.attributedText = .constant(text)
+        self.configuration = .init(
+            isConstant: true,
+            onEditingChanged: { _ in },
+            onCommit: { }
+        )
+    }
+    
+    public init(
+        _ text: String
+    ) {
+        self.label = EmptyView()
+        self.text = .constant(text)
         self.configuration = .init(
             isConstant: true,
             onEditingChanged: { _ in },
@@ -626,6 +602,18 @@ extension TextView: DefaultTextInputType where Label == Text {
     }
 }
 
+// MARK: - Modifiers
+
+@available(macOS 11.0, iOS 14.0, watchOS 8.0, tvOS 14.0, *)
+@available(watchOS, unavailable)
+extension TextView {
+    public func _fixedSize(horizontal: Bool, vertical: Bool) -> Self {
+        then {
+            $0.configuration._fixedSize = (horizontal, vertical)
+        }
+    }
+}
+
 @available(macOS 11.0, iOS 14.0, watchOS 8.0, tvOS 14.0, *)
 @available(watchOS, unavailable)
 extension TextView {
@@ -673,6 +661,11 @@ extension TextView {
     public func foregroundColor(_ foregroundColor: Color) -> Self {
         then({ $0.configuration.textColor = foregroundColor.toAppKitOrUIKitColor() })
     }
+    
+    @_disfavoredOverload
+    public func foregroundColor(_ foregroundColor: AppKitOrUIKitColor) -> Self {
+        then({ $0.configuration.textColor = foregroundColor })
+    }
 	
 	public func tint(_ tint: Color) -> Self {
 		then({ $0.configuration.tintColor = tint.toAppKitOrUIKitColor() })
@@ -684,16 +677,16 @@ extension TextView {
         then({ $0.configuration.linkForegroundColor = linkForegroundColor?.toAppKitOrUIKitColor() })
     }
     #endif
-    
+        
+    public func font(_ font: Font) -> Self {
+        then({ $0.configuration.font = try? font.toAppKitOrUIKitFont() })
+    }
+        
+    @_disfavoredOverload
     public func font(_ font: AppKitOrUIKitFont?) -> Self {
         then({ $0.configuration.font = font })
     }
-    
-    @_disfavoredOverload
-    public func foregroundColor(_ foregroundColor: AppKitOrUIKitColor) -> Self {
-        then({ $0.configuration.textColor = foregroundColor })
-    }
-    
+
     @_disfavoredOverload
     public func tint(_ tint: AppKitOrUIKitColor) -> Self {
         then({ $0.configuration.tintColor = tint })

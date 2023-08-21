@@ -52,7 +52,7 @@ open class CocoaPresentationHostingController: CocoaHostingController<AnyPresent
             popoverPresentationController?.permittedArrowDirections = .init(permittedArrowDirections)
             
             let sourceViewDescription = mainView.preferredSourceViewName.flatMap {
-                (presentingViewController as? _opaque_CocoaViewController)?._namedViewDescription(for: $0)
+                (presentingViewController as? (any CocoaViewController))?._namedViewDescription(for: $0)
             }
             
             popoverPresentationController?.sourceView = presentingViewController?.view
@@ -103,7 +103,7 @@ open class CocoaPresentationHostingController: CocoaHostingController<AnyPresent
     open func invalidatePreferredContentSize() {
         #if os(iOS) || targetEnvironment(macCatalyst)
         if modalPresentationStyle == .popover {
-            preferredContentSize = sizeThatFits(.init(targetSize: nil))
+            preferredContentSize = sizeThatFits(nil)
         }
         #endif
     }
