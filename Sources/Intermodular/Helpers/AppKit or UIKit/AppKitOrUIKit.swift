@@ -355,14 +355,37 @@ public let NSOpenPanel_Type = unsafeBitCast(NSClassFromString("NSOpenPanel"), to
 #if os(iOS) || os(tvOS) || os(macOS) || targetEnvironment(macCatalyst)
 
 public struct _AppKitOrUIKitViewAnimation: Equatable  {
-    public let options: AppKitOrUIKitView.AnimationOptions
-    public let duration: CGFloat
-    
-    public init(options: AppKitOrUIKitView.AnimationOptions, duration: CGFloat) {
+    public let options: AppKitOrUIKitView.AnimationOptions?
+    public let duration: CGFloat?
+
+    init(
+        options: AppKitOrUIKitView.AnimationOptions?,
+        duration: CGFloat?
+    ) {
         self.options = options
         self.duration = duration
     }
     
+    public init(
+        options: AppKitOrUIKitView.AnimationOptions,
+        duration: CGFloat
+    ) {
+        self.options = options
+        self.duration = duration
+    }
+    
+    public static var `default`: Self {
+        .init(options: nil, duration: nil)
+    }
+    
+    public static func linear(duration: Double) -> Self {
+        .init(options: .curveLinear, duration: duration)
+    }
+    
+    public static var linear: Self {
+        .init(options: .curveLinear, duration: 0.3)
+    }
+
     public static func easeInOut(duration: Double) -> Self {
         .init(options: .curveEaseInOut, duration: duration)
     }
@@ -388,34 +411,58 @@ public struct _AppKitOrUIKitViewAnimation: Equatable  {
     }
 }
 
+private var _isAnimatingAppKitOrUIKit: Bool = false
+
 public func _withAppKitOrUIKitAnimation(
-    _ animation: _AppKitOrUIKitViewAnimation?,
+    _ animation: _AppKitOrUIKitViewAnimation? = .default,
     @_implicitSelfCapture body: @escaping () -> ()
 ) {
-    guard let animation else {
+    guard !_areAnimationsDisabledGlobally, !_isAnimatingAppKitOrUIKit, let animation else {
         body()
         
         return
     }
+        
+    _isAnimatingAppKitOrUIKit = true
     
     AppKitOrUIKitView.animate(
-        withDuration: animation.duration,
+        withDuration: animation.duration ?? 0.3,
         delay: 0,
-        options: animation.options,
+        options: animation.options ?? [],
         animations: body
     )
+    
+    _isAnimatingAppKitOrUIKit = false
 }
 
-#if os(macOS)
 extension AppKitOrUIKitViewController {
-    public func _setNeedsLayout() {
-        view.needsLayout = true
+    public func _SwiftUIX_setNeedsLayout() {
+        view._SwiftUIX_setNeedsLayout()
+    }
+    
+    public func _SwiftUIX_layoutIfNeeded() {
+        view._SwiftUIX_layoutIfNeeded()
     }
 }
-#else
-extension AppKitOrUIKitViewController {
-    public func _setNeedsLayout() {
-        view.setNeedsLayout()
+
+#if os(iOS) || os(tvOS)
+extension AppKitOrUIKitView {
+    public func _SwiftUIX_setNeedsLayout() {
+        setNeedsLayout()
+    }
+    
+    public func _SwiftUIX_layoutIfNeeded() {
+        layoutIfNeeded()
+    }
+}
+#elseif os(macOS)
+extension AppKitOrUIKitView {
+    public func _SwiftUIX_setNeedsLayout() {
+        needsLayout = true
+    }
+    
+    public func _SwiftUIX_layoutIfNeeded() {
+        layout()
     }
 }
 #endif
@@ -437,11 +484,11 @@ extension EnvironmentValues {
 }
 
 public struct AppKitOrUIKitViewAdaptor<Base: AppKitOrUIKitView>: AppKitOrUIKitViewRepresentable {
-#if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
+    #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
     public typealias UIViewType = Base
-#elseif os(macOS)
+    #elseif os(macOS)
     public typealias NSViewType = Base
-#endif
+    #endif
     
     public typealias AppKitOrUIKitViewType = Base
     

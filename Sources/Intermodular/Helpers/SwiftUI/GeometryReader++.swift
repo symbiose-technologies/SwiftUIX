@@ -18,3 +18,17 @@ extension GeometryReader {
         }
     }
 }
+
+extension GeometryProxy {
+    public func convert(
+        _ coordinate: CGPoint,
+        from coordinateSpace: CoordinateSpace
+    ) -> CGPoint {
+        let frame = self.frame(in: coordinateSpace)
+        
+        return CGPoint(
+            x: coordinate.x - frame.origin.x,
+            y: coordinate.y - frame.origin.y
+        )
+    }
+}

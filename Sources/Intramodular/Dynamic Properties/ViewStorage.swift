@@ -8,7 +8,7 @@ import SwiftUI
 
 @propertyWrapper
 public struct ViewStorage<Value>: DynamicProperty {
-    public final class ValueBox: ObservableValue<Value> {
+    public final class ValueBox: AnyObservableValue<Value> {
         @Published fileprivate var value: Value
         
         public override var wrappedValue: Value {
@@ -67,7 +67,7 @@ extension ViewStorage {
 extension ViewStorage {
     @ViewBuilder
     public func withObservedValue<Content: View>(
-        _ value: @escaping (Value) -> Content
+        @ViewBuilder _ value: @escaping (Value) -> Content
     ) -> some View {
         withInlineObservedObject(_valueBox) {
             value($0.value)

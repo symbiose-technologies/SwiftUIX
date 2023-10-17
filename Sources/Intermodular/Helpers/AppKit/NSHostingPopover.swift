@@ -3,29 +3,49 @@
 //
 
 #if os(macOS)
-
 import AppKit
+#endif
 import Swift
 import SwiftUI
 
+#if os(iOS) || os(tvOS)
+public protocol AppKitOrUIKitHostingPopoverProtocol {
+    func enforceTransientBehavior()
+}
+#elseif os(macOS)
+public protocol AppKitOrUIKitHostingPopoverProtocol: NSPopover {
+    func enforceTransientBehavior()
+}
+#endif
+
+#if os(macOS)
 /// An AppKit popover that hosts SwiftUI view hierarchy.
-open class NSHostingPopover<Content: View>: NSPopover, NSPopoverDelegate {
+open class NSHostingPopover<Content: View>: NSPopover, NSPopoverDelegate, AppKitOrUIKitHostingPopoverProtocol {
     private var _contentViewController: CocoaHostingController<ContentWrapper> {
         if let contentViewController = contentViewController {
             return contentViewController as! CocoaHostingController<ContentWrapper>
         } else {
-            let contentViewController = CocoaHostingController<ContentWrapper>(mainView: .init(parentBox: .init(nil), content: rootView))
+            let result = CocoaHostingController<ContentWrapper>(mainView: .init(parentBox: .init(nil), content: rootView))
             
-            self.contentViewController = contentViewController
+            result.parentPopover = self
+            result.mainView.parentBox.wrappedValue = self
             
-            return contentViewController
+            if #available(macOS 13.0, *) {
+                result.sizingOptions = .preferredContentSize
+            }
+            
+            self.contentViewController = result
+            
+            return result
         }
     }
     
     public var rootView: Content {
         didSet {
             _contentViewController.mainView.content = rootView
-            _contentViewController.view.layout()
+            
+            _contentViewController._SwiftUIX_setNeedsLayout()
+            _contentViewController._SwiftUIX_layoutIfNeeded()
         }
     }
     
@@ -43,13 +63,38 @@ open class NSHostingPopover<Content: View>: NSPopover, NSPopoverDelegate {
         fatalError("init(coder:) has not been implemented")
     }
     
+    public func _setShouldHideAnchor(_ hide: Bool) {
+        setValue(hide, forKeyPath: "shouldHideAnchor")
+    }
+    
+    private weak var _rightfulKeyWindow: NSWindow?
+    private weak var _rightfulFirstResponder: AppKitOrUIKitResponder?
+
     override open func show(
         relativeTo positioningRect: NSRect,
         of positioningView: NSView,
         preferredEdge: NSRectEdge
     ) {
-        _contentViewController.mainView.parentBox.wrappedValue = self
-        
+        if _sizeContentToFit() {
+            _showWellSized(relativeTo: positioningRect, of: positioningView, preferredEdge: preferredEdge)
+        } else {
+            DispatchQueue.main.async {
+                assert(self._sizeContentToFit())
+                
+                self._showWellSized(
+                    relativeTo: positioningRect,
+                    of: positioningView,
+                    preferredEdge: preferredEdge
+                )
+            }
+        }
+    }
+
+    private func _showWellSized(
+        relativeTo positioningRect: NSRect,
+        of positioningView: NSView,
+        preferredEdge: NSRectEdge
+    ) {
         let _animates = self.animates
         
         if _areAnimationsDisabledGlobally {
@@ -63,18 +108,155 @@ open class NSHostingPopover<Content: View>: NSPopover, NSPopoverDelegate {
                 }
             }
         }
+                        
+        let deferShow = positioningView.frame.size.isAreaZero && (positioningView.window?.frame.size ?? .zero).isAreaZero
+        
+        if deferShow {
+            let windowWasPresent = positioningView.window != nil
+            
+            DispatchQueue.main.async {
+                guard positioningView.window != nil else {
+                    assert(windowWasPresent)
+                    
+                    return
+                }
+                
+                self._showUnconditionally(
+                    relativeTo: positioningRect,
+                    of: positioningView,
+                    preferredEdge: preferredEdge
+                )
+            }
+        } else {
+            _showUnconditionally(
+                relativeTo: positioningRect,
+                of: positioningView,
+                preferredEdge: preferredEdge
+            )
+        }
+    }
+    
+    private func _showUnconditionally(
+        relativeTo positioningRect: NSRect,
+        of positioningView: NSView,
+        preferredEdge: NSRectEdge
+    ) {
+        assert(!positioningView.frame.size.isAreaZero)
+        
+        _rightfulKeyWindow = NSWindow._firstKeyInstance
+        _rightfulFirstResponder = NSWindow._firstKeyInstance?.firstResponder
+        
+        if self.behavior == .transient {
+            self.behavior = .applicationDefined
+            self.behavior = .transient
+        }
         
         super.show(
             relativeTo: positioningRect,
             of: positioningView,
             preferredEdge: preferredEdge
         )
+        
+        assert(isShown)
+        
+        if #available(macOS 13.0, *) {
+            enforceTransientBehavior()
+        }
+        
+        if self.behavior == .transient {
+            DispatchQueue.main.async {
+                self.enforceTransientBehavior()
+            }
+        }
+    }
+
+    override open func close() {
+        _cleanUpPostShow()
+        
+        super.close()
     }
     
+    override open func performClose(_ sender: Any?) {
+        _cleanUpPostShow()
+        
+        super.performClose(sender)
+    }
+        
     // MARK: - NSPopoverDelegate -
     
+    public func popoverDidShow(_ notification: Notification) {
+        enforceTransientBehavior()
+    }
+    
     public func popoverDidClose(_ notification: Notification) {
+        _cleanUpPostShow()
+
         contentViewController = nil
+    }
+    
+    // MARK: - Internal
+    
+    private func _cleanUpPostShow() {
+        _rightfulKeyWindow = nil
+        _rightfulFirstResponder = nil
+    }
+
+    public func _sizeContentToFit() -> Bool {
+        if _contentViewController.preferredContentSize.isAreaZero {
+            _contentViewController._canBecomeFirstResponder = false
+            
+            _contentViewController._SwiftUIX_setNeedsLayout()
+            _contentViewController._SwiftUIX_layoutIfNeeded()
+            
+            let size = _contentViewController.sizeThatFits(
+                AppKitOrUIKitLayoutSizeProposal(fixedSize: (true, true)),
+                layoutImmediately: true
+            )
+            
+            _contentViewController.preferredContentSize = size
+            
+            _contentViewController._canBecomeFirstResponder = nil
+        }
+        
+        return !_contentViewController.preferredContentSize.isAreaZero
+    }
+    
+    public var wantsTransientBehaviorEnforcement: Bool {
+        guard isShown, contentViewController?.view.window != nil else {
+            return false
+        }
+        
+        return self.behavior == .transient
+    }
+    
+    public func enforceTransientBehavior() {
+        guard wantsTransientBehaviorEnforcement, let popoverWindow = self.contentViewController?.view.window else {
+            return
+        }
+        
+        popoverWindow.collectionBehavior = .transient
+        
+        let popoverWindowWasKey = popoverWindow.isKeyWindow
+        
+        if popoverWindow.isKeyWindow {
+            popoverWindow.resignKey()
+        }
+        
+        assert(popoverWindow.isKeyWindow == false)
+         
+        guard popoverWindowWasKey else {
+            _cleanUpPostShow()
+            
+            return
+        }
+        
+        if let previousKeyWindow = _rightfulKeyWindow {
+            previousKeyWindow.makeKeyAndOrderFront(nil)
+            
+            if let responder = _rightfulFirstResponder, previousKeyWindow.firstResponder != responder {
+                previousKeyWindow.makeFirstResponder(responder)
+            }
+        }
     }
 }
 
@@ -86,12 +268,18 @@ extension NSHostingPopover {
         
         var content: Content
         
+        @State private var didAppear: Bool = false
+        
         var body: some View {
             if parentBox.wrappedValue != nil {
                 content
                     .environment(\.presentationManager, PresentationManager(parentBox))
                     .onChangeOfFrame { _ in
                         parentBox.wrappedValue?._contentViewController.view.layout()
+                    }
+                    .focusable(false)
+                    .onAppear {
+                        didAppear = true
                     }
             }
         }

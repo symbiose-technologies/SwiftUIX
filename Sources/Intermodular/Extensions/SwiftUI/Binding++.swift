@@ -13,7 +13,9 @@ extension Binding {
 }
 
 extension Binding {
-    public func conditionalCast<T, U>() -> Binding<Optional<U>> where Value == Optional<T> {
+    public func conditionalCast<T, U>(
+        to: U.Type = U.self
+    ) -> Binding<Optional<U>> where Value == Optional<T> {
         Binding<Optional<U>>(
             get: {
                 self.wrappedValue.flatMap({ $0 as? U })
@@ -24,7 +26,7 @@ extension Binding {
         )
     }
 
-    public func _cast<T>(
+    public func _conditionalCast<T>(
         to type: T.Type = T.self
     ) -> Binding<Optional<T>> {
         Binding<Optional<T>>(
@@ -43,7 +45,7 @@ extension Binding {
         )
     }
 
-    public func _cast<T>(
+    public func _conditionalCast<T>(
         to type: T.Type = T.self,
         defaultValue: @escaping () -> T
     ) -> Binding<T> {
@@ -108,9 +110,22 @@ extension Binding {
 }
 
 extension Binding {
-    public func onChange(perform action: @escaping (Value) -> ()) -> Self where Value: Equatable {
+    public func onSet(
+        perform body: @escaping (Value) -> ()
+    ) -> Self {
         return .init(
             get: { self.wrappedValue },
+            set: { self.wrappedValue = $0; body($0) }
+        )
+    }
+
+    public func onChange(
+        perform action: @escaping (Value) -> ()
+    ) -> Self where Value: Equatable {
+        return .init(
+            get: {
+                self.wrappedValue
+            },
             set: { newValue in
                 let oldValue = self.wrappedValue
                 
@@ -123,21 +138,14 @@ extension Binding {
         )
     }
     
-    public func onChange(toggle value: Binding<Bool>) -> Self where Value: Equatable {
+    public func onChange(
+        toggle value: Binding<Bool>
+    ) -> Self where Value: Equatable {
         onChange { _ in
             value.wrappedValue.toggle()
         }
     }
-    
-    public func onSet(
-        perform body: @escaping (Value) -> ()
-    ) -> Self {
-        return .init(
-            get: { self.wrappedValue },
-            set: { self.wrappedValue = $0; body($0) }
-        )
-    }
-    
+        
     public func mirror(
         to other: Binding<Value>
     ) -> Binding<Value> {
@@ -176,14 +184,35 @@ extension Binding {
     public func isNil<Wrapped>() -> Binding<Bool> where Optional<Wrapped> == Value {
         .init(
             get: { self.wrappedValue == nil },
-            set: { isNil in self.wrappedValue = isNil ? nil : self.wrappedValue  }
+            set: { isNil in
+                self.wrappedValue = isNil ? nil : self.wrappedValue
+            }
         )
     }
     
     public func isNotNil<Wrapped>() -> Binding<Bool> where Optional<Wrapped> == Value {
         .init(
             get: { self.wrappedValue != nil },
-            set: { isNotNil in self.wrappedValue = isNotNil ? self.wrappedValue : nil  }
+            set: { isNotNil in
+                self.wrappedValue = isNotNil ? self.wrappedValue : nil
+            }
+        )
+    }
+    
+    public func isNotNil<Wrapped>(
+        default defaultValue: @escaping @autoclosure () -> Wrapped
+    ) -> Binding<Bool> where Optional<Wrapped> == Value {
+        .init(
+            get: { 
+                self.wrappedValue != nil
+            },
+            set: { newValue in
+                if newValue {
+                    self.wrappedValue = self.wrappedValue ?? defaultValue()
+                } else {
+                    self.wrappedValue = nil
+                }
+            }
         )
     }
     

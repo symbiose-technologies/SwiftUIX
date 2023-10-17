@@ -187,7 +187,11 @@ extension CollectionView {
         id: KeyPath<Data.Element, ID>,
         @ViewBuilder rowContent: @escaping (Data.Element) -> Section<Header, ForEach<Items, Items.Element.ID, RowContent>, Footer>
     ) where Items.Element: Identifiable {
-        self.init(sections: data, id: id, rowContent: rowContent)
+        self.init(
+            sections: data,
+            id: id,
+            rowContent: rowContent
+        )
         
         _scrollViewConfiguration.axes = axes
     }
@@ -371,7 +375,11 @@ extension CollectionView {
     @available(iOS 13.4, *)
     @available(tvOS, unavailable)
     public func onDrop(delegate: CollectionViewDropDelegate) -> Self {
-        then({ $0._dynamicViewContentTraitValues.collectionViewDropDelegate = delegate })
+        #if !os(tvOS)
+        return then({ $0._dynamicViewContentTraitValues.collectionViewDropDelegate = delegate })
+        #else
+        return self
+        #endif
     }
     
     @available(iOS 13.4, *)
