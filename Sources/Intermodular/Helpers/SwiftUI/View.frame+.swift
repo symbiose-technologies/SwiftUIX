@@ -23,6 +23,28 @@ extension View {
         modifier(GreedyFrameModifier(width: .greedy, height: nil, alignment: alignment))
     }
     
+    @_disfavoredOverload
+    @inlinable
+    public func frame(
+        width: _GreedyFrameSize,
+        minHeight: CGFloat? = nil,
+        idealHeight: CGFloat? = nil,
+        maxHeight: CGFloat? = nil,
+        alignment: Alignment = .center
+    ) -> some View {
+        self
+            .frame(
+                width: .greedy,
+                alignment: alignment
+            )
+            .frame(
+                minHeight: minHeight,
+                idealHeight: idealHeight,
+                maxHeight: maxHeight,
+                alignment: alignment
+            )
+    }
+
     @inlinable
     public func frame(
         width: _GreedyFrameSize,
@@ -435,16 +457,16 @@ fileprivate struct _AdhereToReferenceFrame<Reference: View>: ViewModifier {
                     .hidden()
                     .frame(id: Subviews.reference)
                     .frame(
-                        width: !dimensions.contains(.width) ? proxy.size(for: Subviews.content).width : nil,
-                        height: !dimensions.contains(.height) ? proxy.size(for: Subviews.content).height : nil
+                        width: !dimensions.contains(.width) ? proxy.size(for: Subviews.content)?.width : nil,
+                        height: !dimensions.contains(.height) ? proxy.size(for: Subviews.content)?.height : nil
                     )
                     .clipped()
                 
                 content
                     .frame(id: Subviews.content)
                     .frame(
-                        width: dimensions.contains(.width) ? proxy.size(for: Subviews.reference).width : nil,
-                        height: dimensions.contains(.height) ? proxy.size(for: Subviews.reference).height : nil
+                        width: dimensions.contains(.width) ? proxy.size(for: Subviews.reference)?.width : nil,
+                        height: dimensions.contains(.height) ? proxy.size(for: Subviews.reference)?.height : nil
                     )
             }
         }

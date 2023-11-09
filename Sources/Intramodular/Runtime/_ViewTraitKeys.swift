@@ -10,6 +10,8 @@ public struct _ViewTraitKeys {
     }
 }
 
+// MARK: - Supplementary
+
 extension View {
     public func _trait<TraitKey: _ViewTraitKey>(
         _ key: KeyPath<_ViewTraitKeys, TraitKey.Type>,
@@ -19,19 +21,44 @@ extension View {
     }
 }
 
+// MARK: - Auxiliary
+
 extension _VariadicViewChildren.Subview {
     @dynamicMemberLookup
+    @frozen
     public struct TraitsView {
-        public let base: _VariadicViewChildren.Subview
+        public var base: _VariadicViewChildren.Subview
         
+        @_transparent
+        public init(base: _VariadicViewChildren.Subview) {
+            self.base = base
+        }
+        
+        @inlinable
         public subscript<Key: _ViewTraitKey>(
             dynamicMember keyPath: KeyPath<_ViewTraitKeys, Key.Type>
         ) -> Key.Value {
             base[trait: keyPath]
         }
+        
+        @inlinable
+        public subscript<Key: _ViewTraitKey>(
+            dynamicMember keyPath: WritableKeyPath<_ViewTraitKeys, Key.Type>
+        ) -> Key.Value {
+            get {
+                base[trait: keyPath]
+            } set {
+                base[trait: keyPath] = newValue
+            }
+        }
     }
     
+    @_transparent
     public var traits: TraitsView {
-        .init(base: self)
+        get {
+            TraitsView(base: self)
+        } set {
+            self = newValue.base
+        }
     }
 }
