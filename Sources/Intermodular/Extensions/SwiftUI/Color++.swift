@@ -12,7 +12,7 @@ extension Color {
 }
 
 extension Color {
-    #if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+    #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
     public static var lightGray: Color {
         Color(.lightGray)
     }
@@ -36,78 +36,65 @@ extension Color {
     }
 }
 
-#if os(iOS) || os(macOS) || os(tvOS) || os(visionOS)
+#if os(iOS) || os(macOS) || os(tvOS)
 extension Color {
-    @_disfavoredOverload
     public static var systemRed: Color {
         Color(.systemRed)
     }
     
-    @_disfavoredOverload
     public static var systemGreen: Color {
         Color(.systemGreen)
     }
     
-    @_disfavoredOverload
     public static var systemBlue: Color {
         Color(.systemBlue)
     }
     
-    @_disfavoredOverload
     public static var systemOrange: Color {
         Color(.systemOrange)
     }
     
-    @_disfavoredOverload
     public static var systemYellow: Color {
         Color(.systemYellow)
     }
     
-    @_disfavoredOverload
     public static var systemPink: Color {
         Color(.systemPink)
     }
     
-    @_disfavoredOverload
     public static var systemPurple: Color {
         Color(.systemPurple)
     }
     
-    @_disfavoredOverload
     public static var systemTeal: Color {
         Color(.systemTeal)
     }
     
-    @_disfavoredOverload
     public static var systemIndigo: Color {
         Color(.systemIndigo)
     }
 
-    @_disfavoredOverload
     public static var systemBrown: Color {
         Color(.systemBrown)
     }
 
-    @_disfavoredOverload
     @available(iOS 15.0, tvOS 15.0, *)
     public static var systemMint: Color {
         Color(.systemMint)
     }
 
-    @_disfavoredOverload
     @available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
     public static var systemCyan: Color {
         Color(.systemCyan)
     }
 
-    @_disfavoredOverload
     public static var systemGray: Color {
         Color(.systemGray)
     }
 }
 #endif
 
-#if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || targetEnvironment(macCatalyst)
 extension Color {
     @_disfavoredOverload
     public static var brown: Color {
@@ -124,10 +111,7 @@ extension Color {
         Color(.systemTeal)
     }
 }
-#endif
 
-#if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
-@available(tvOS, unavailable)
 extension Color {
     public static let systemGray2: Color = Color(.systemGray2)
     public static let systemGray3: Color = Color(.systemGray3)
@@ -135,37 +119,9 @@ extension Color {
     public static let systemGray5: Color = Color(.systemGray5)
     public static let systemGray6: Color = Color(.systemGray6)
 }
-#elseif os(macOS)
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension Color {
-    public static let systemGray2: Color = .adaptable(
-        light: Color(cube256: .sRGB, red: 174, green: 174, blue: 178, opacity: 1),
-        dark: Color(cube256: .sRGB, red: 99, green: 99, blue: 102, opacity: 1)
-    )
-    
-    public static let systemGray3: Color = .adaptable(
-        light: Color(cube256: .sRGB, red: 199, green: 199, blue: 204, opacity: 1),
-        dark: Color(cube256: .sRGB, red: 72, green: 72, blue: 74, opacity: 1)
-    )
-    
-    public static let systemGray4: Color = .adaptable(
-        light: Color(cube256: .sRGB, red: 209, green: 209, blue: 214, opacity: 1),
-        dark: Color(cube256: .sRGB, red: 58, green: 58, blue: 60, opacity: 1)
-    )
-    
-    public static let systemGray5: Color = .adaptable(
-        light: Color(cube256: .sRGB, red: 229, green: 229, blue: 234, opacity: 1),
-        dark: Color(cube256: .sRGB, red: 44, green: 44, blue: 46, opacity: 1)
-    )
-    
-    public static let systemGray6: Color = .adaptable(
-        light: Color(cube256: .sRGB, red: 242, green: 242, blue: 247, opacity: 1),
-        dark: Color(cube256: .sRGB, red: 28, green: 28, blue: 30, opacity: 1)
-    )
-}
 #endif
 
-#if os(iOS) || os(macOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(macOS) || os(tvOS) || targetEnvironment(macCatalyst)
 extension Color {
     /// The color for text labels that contain primary content.
     public static var label: Color {
@@ -205,7 +161,7 @@ extension Color {
 }
 #endif
 
-#if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 extension Color {
     /// A foreground color for standard system links.
     public static var link: Color {
@@ -276,7 +232,7 @@ extension Color {
 }
 #endif
 
-#if os(iOS) || os(macOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(macOS) || targetEnvironment(macCatalyst)
 extension Color {
     /// A color  appropriate for filling thin and small shapes.
     ///
@@ -325,7 +281,7 @@ extension Color {
 }
 #endif
 
-#if os(iOS) || os(macOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(macOS) || os(tvOS) || targetEnvironment(macCatalyst)
 extension Color {
     /// A color that adapts to the preferred color scheme.
     ///
@@ -347,7 +303,7 @@ extension Color {
 }
 #endif
 
-#if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 extension Color {
     /// Inverts the color.
     @available(iOS 14.0, tvOS 14.0, watchOS 7.0, *)
@@ -467,7 +423,7 @@ extension Color {
 
 // MARK: - Auxiliary
 
-#if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 fileprivate extension AppKitOrUIKitColor {
     class func adaptable(
         light: @escaping @autoclosure () -> AppKitOrUIKitColor,
@@ -521,7 +477,7 @@ fileprivate extension AppKitOrUIKitColor {
 }
 #endif
 
-#if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
 extension AppKitOrUIKitColor {
     func invertedColor() -> AppKitOrUIKitColor {
         var alpha: CGFloat = 1.0
@@ -560,21 +516,6 @@ extension Color {
 
 #if os(macOS)
 extension NSAppearance {
-    public enum _SwiftUIX_UserInterfaceStyle {
-        case light
-        case dark
-    }
-    
-    var _SwiftUIX_userInterfaceStyle: _SwiftUIX_UserInterfaceStyle {
-        if name == Name.darkAqua ||
-            name == Name.vibrantDark ||
-            name == Name.accessibilityHighContrastDarkAqua ||
-            name == Name.accessibilityHighContrastVibrantDark {
-            return .dark
-        }
-        return .light
-    }
-    
     fileprivate var isDarkMode: Bool {
         switch name {
             case .darkAqua, .vibrantDark, .accessibilityHighContrastDarkAqua, .accessibilityHighContrastVibrantDark:
