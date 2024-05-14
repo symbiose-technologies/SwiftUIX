@@ -19,14 +19,26 @@ The goal of this project is to **complement** the SwiftUI standard library, offe
 
 # Requirements
 
-- Deployment target: iOS 13, macOS 10.15, tvOS 13, or watchOS 6
-- Xcode 14.3+
+> [!Note]
+> Swift 5.9 is the latest release for Swift and adds support for macros, support for Swift 5.8 will be dropped soon.
+
+- Deployment target: iOS 13, macOS 10.15, tvOS 13, watchOS 6 and visionOS 1 beta 6 (Xcode Xcode 15.1 beta 3)
+- Xcode 15.0+ 
 
 # Installation
 
 The preferred way of installing SwiftUIX is via the [Swift Package Manager](https://swift.org/package-manager/).
 
-> Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, macOS and tvOS platforms.
+```swift
+/// Package.swift
+/// ...
+dependencies: [
+    .package(url: "https://github.com/SwiftUIX/SwiftUIX.git", branch: "master"),
+]
+/// ...
+```
+
+> Xcode 15 integrates with libSwiftPM to provide support for iOS, watchOS, macOS and tvOS platforms.
 
 1. In Xcode, open your project and navigate to **File** → **Swift Packages** → **Add Package Dependency...**
 2. Paste the repository URL (`https://github.com/SwiftUIX/SwiftUIX`) and click **Next**.
@@ -234,9 +246,6 @@ LinkPresentationView(url: url)
   VisualEffectBlurView(blurStyle: .dark)
       .edgesIgnoringSafeArea(.all)
   ```
-
-> [!Note]
-> This package is under development and is being currently rewritten to fully leverage Swift 5.9.
 
 ### Window
 
